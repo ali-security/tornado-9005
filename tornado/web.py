@@ -67,6 +67,7 @@ import functools
 import gzip
 import hashlib
 import hmac
+import http.cookies
 import mimetypes
 import numbers
 import os.path
@@ -559,7 +560,7 @@ class RequestHandler(object):
             # Legacy check for control characters in cookie values. This check is no longer needed
             # since the cookie library escapes these characters correctly now. It will be removed
             # in the next feature release.
-            raise ValueError("Invalid cookie %r: %r" % (name, value))
+            raise ValueError(f"Invalid cookie {name!r}: {value!r}")
         for attr_name, attr_value in [
             ("name", name),
             ("domain", domain),
@@ -570,9 +571,14 @@ class RequestHandler(object):
             # escaped in the value). A check for control characters was added to the http.cookies
             # library in a Feb 2026 security release; as of March it still does not check for
             # semicolons.
+            #
+            # When a semicolon check is added to the standard library (and the release has had time
+            # for adoption), this check may be removed, but be mindful of the fact that this may
+            # change the timing of the exception (to the generation of the Set-Cookie header in
+            # flush()). We m
             if attr_value is not None and re.search(r"[\x00-\x20\x3b\x7f]", attr_value):
-                raise Cookie.CookieError(
-                    "Invalid cookie attribute %s=%r for cookie %r" % (attr_name, attr_value, name)
+                raise http.cookies.CookieError(
+                    f"Invalid cookie attribute {attr_name}={attr_value!r} for cookie {name!r}"
                 )
         if not hasattr(self, "_new_cookie"):
             self._new_cookie = Cookie.SimpleCookie()

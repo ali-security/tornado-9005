@@ -1,4 +1,5 @@
 from __future__ import absolute_import, division, print_function
+import http
 
 from tornado.concurrent import Future
 from tornado import gen
@@ -267,7 +268,7 @@ class CookieTest(WebTestCase):
                         self.write(
                             "Didn't get expected exception for char %r in name\n" % char
                         )
-                    except Cookie.CookieError as e:
+                    except http.cookies.CookieError as e:
                         if "Invalid cookie attribute name" not in str(e):
                             self.write(
                                 "unexpected exception for char %r in name: %s\n"
@@ -280,7 +281,7 @@ class CookieTest(WebTestCase):
                             "Didn't get expected exception for char %r in domain\n"
                             % char
                         )
-                    except Cookie.CookieError as e:
+                    except http.cookies.CookieError as e:
                         if "Invalid cookie attribute domain" not in str(e):
                             self.write(
                                 "unexpected exception for char %r in domain: %s\n"
@@ -292,7 +293,7 @@ class CookieTest(WebTestCase):
                         self.write(
                             "Didn't get expected exception for char %r in path\n" % char
                         )
-                    except Cookie.CookieError as e:
+                    except http.cookies.CookieError as e:
                         if "Invalid cookie attribute path" not in str(e):
                             self.write(
                                 "unexpected exception for char %r in path: %s\n"
@@ -305,7 +306,7 @@ class CookieTest(WebTestCase):
                             "Didn't get expected exception for char %r in samesite\n"
                             % char
                         )
-                    except Cookie.CookieError as e:
+                    except http.cookies.CookieError as e:
                         if "Invalid cookie attribute samesite" not in str(e):
                             self.write(
                                 "unexpected exception for char %r in samesite: %s\n"
@@ -335,16 +336,23 @@ class CookieTest(WebTestCase):
                 self.set_cookie("c", "1", httponly=True)
                 self.set_cookie("d", "1", httponly=False)
 
-        return [("/set", SetCookieHandler),
-                ("/get", GetCookieHandler),
-                ("/set_domain", SetCookieDomainHandler),
-                ("/special_char", SetCookieSpecialCharHandler),
-                ("/forbidden_char", SetCookieForbiddenCharHandler),
-                ("/set_overwrite", SetCookieOverwriteHandler),
-                ("/set_max_age", SetCookieMaxAgeHandler),
-                ("/set_expires_days", SetCookieExpiresDaysHandler),
-                ("/set_falsy_flags", SetCookieFalsyFlags)
-                ]
+        class SetCookieDeprecatedArgs(RequestHandler):
+            def get(self):
+                # Mixed case is supported, but deprecated
+                self.set_cookie("a", "b", HttpOnly=True, pATH="/foo")
+
+        return [
+            ("/set", SetCookieHandler),
+            ("/get", GetCookieHandler),
+            ("/set_domain", SetCookieDomainHandler),
+            ("/special_char", SetCookieSpecialCharHandler),
+            ("/forbidden_char", SetCookieForbiddenCharHandler),
+            ("/set_overwrite", SetCookieOverwriteHandler),
+            ("/set_max_age", SetCookieMaxAgeHandler),
+            ("/set_expires_days", SetCookieExpiresDaysHandler),
+            ("/set_falsy_flags", SetCookieFalsyFlags),
+            ("/set_deprecated", SetCookieDeprecatedArgs),
+        ]
 
     def test_set_cookie(self):
         response = self.fetch("/set")
