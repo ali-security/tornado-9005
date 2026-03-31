@@ -24,7 +24,6 @@ from __future__ import absolute_import, division, print_function
 import calendar
 import collections
 import copy
-import dataclasses
 import datetime
 import email.utils
 import numbers
@@ -747,32 +746,28 @@ def _int_or_none(val):
     return int(val)
 
 
-@dataclasses.dataclass
-class ParseMultipartConfig:
+class ParseMultipartConfig(object):
     """This class configures the parsing of ``multipart/form-data`` request bodies.
 
     Its primary purpose is to place limits on the size and complexity of request messages
     to avoid potential denial-of-service attacks.
     """
 
-    enabled: bool = True
-    """Set this to false to disable the parsing of ``multipart/form-data`` requests entirely."""
+    def __init__(self, enabled=True, max_parts=100, max_part_header_size=10 * 1024):
+        self.enabled = enabled
+        """Set this to false to disable the parsing of ``multipart/form-data`` requests entirely."""
+        self.max_parts = max_parts
+        """The maximum number of parts accepted in a multipart request."""
+        self.max_part_header_size = max_part_header_size
+        """The maximum size of the headers for each part of a multipart request."""
 
-    max_parts: int = 100
-    """The maximum number of parts accepted in a multipart request."""
 
-    max_part_header_size: int = 10 * 1024
-    """The maximum size of the headers for each part of a multipart request."""
-
-
-@dataclasses.dataclass
-class ParseBodyConfig:
+class ParseBodyConfig(object):
     """This class configures the parsing of request bodies."""
 
-    multipart: ParseMultipartConfig = dataclasses.field(
-        default_factory=ParseMultipartConfig
-    )
-    """Configuration for ``multipart/form-data`` request bodies."""
+    def __init__(self, multipart=None):
+        self.multipart = multipart if multipart is not None else ParseMultipartConfig()
+        """Configuration for ``multipart/form-data`` request bodies."""
 
 
 _DEFAULT_PARSE_BODY_CONFIG = ParseBodyConfig()
@@ -800,7 +795,7 @@ def set_parse_body_config(config):
     _DEFAULT_PARSE_BODY_CONFIG = config
 
 
-def parse_body_arguments(content_type, body, arguments, files, headers=None, *, config=None):
+def parse_body_arguments(content_type, body, arguments, files, headers=None, config=None):
     """Parses a form request body.
 
     Supports ``application/x-www-form-urlencoded`` and
@@ -846,7 +841,7 @@ def parse_body_arguments(content_type, body, arguments, files, headers=None, *, 
             raise HTTPInputError("Invalid multipart/form-data: %s" % e)
 
 
-def parse_multipart_form_data(boundary, data, arguments, files, *, config=None):
+def parse_multipart_form_data(boundary, data, arguments, files, config=None):
     """Parses a ``multipart/form-data`` body.
 
     The ``boundary`` and ``data`` parameters are both byte strings.
