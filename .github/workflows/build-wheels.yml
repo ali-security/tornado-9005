@@ -12,6 +12,7 @@ jobs:
     name: Build tornado-5.1.1 - Python ${{ matrix.python-version }} (${{ matrix.arch-name }})
     runs-on: windows-2022
     strategy:
+      fail-fast: false
       matrix:
         include:
           # Python 3.5 - 32-bit and 64-bit
