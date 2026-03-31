@@ -788,7 +788,7 @@ def set_parse_body_config(config):
     >>> parse_body_arguments(content_type, multipart_body, {}, {})
     Traceback (most recent call last):
         ...
-    ...HTTPInputError: ...: multipart/form-data parsing is disabled
+    ...HTTPInputError: ...multipart/form-data parsing is disabled
     >>> set_parse_body_config(ParseBodyConfig())  # reset to defaults
     """
     global _DEFAULT_PARSE_BODY_CONFIG
@@ -837,6 +837,8 @@ def parse_body_arguments(content_type, body, arguments, files, headers=None, con
                     break
             else:
                 raise HTTPInputError("multipart boundary not found")
+        except HTTPInputError:
+            raise
         except Exception as e:
             raise HTTPInputError("Invalid multipart/form-data: %s" % e)
 
