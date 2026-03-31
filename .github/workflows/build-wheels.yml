@@ -19,25 +19,31 @@ jobs:
           - python-version: '3.5'
             arch: 'x86'
             arch-name: 'win32'
+            vcvars-arch: 'x86'
           - python-version: '3.5'
             arch: 'x64'
             arch-name: 'win_amd64'
+            vcvars-arch: 'amd64'
           
           # Python 3.6 - 32-bit and 64-bit
           - python-version: '3.6'
             arch: 'x86'
             arch-name: 'win32'
+            vcvars-arch: 'x86'
           - python-version: '3.6'
             arch: 'x64'
             arch-name: 'win_amd64'
+            vcvars-arch: 'amd64'
           
           # Python 3.7 - 32-bit and 64-bit
           - python-version: '3.7'
             arch: 'x86'
             arch-name: 'win32'
+            vcvars-arch: 'x86'
           - python-version: '3.7'
             arch: 'x64'
             arch-name: 'win_amd64'
+            vcvars-arch: 'amd64'
     
     env:
       TORNADO_EXTENSION: "1"
@@ -61,22 +67,13 @@ jobs:
         python -m pip install --index-url https://:2018-09-16T19:22:58.819187Z@time-machines-pypi.sealsecurity.io/ --disable-pip-version-check --user --upgrade pip
         python -m pip install --index-url https://:2018-09-16T19:22:58.819187Z@time-machines-pypi.sealsecurity.io/ tox wheel
     
-    - name: Install MSVC v140 toolset (required by Python 3.5)
-      if: matrix.python-version == '3.5'
-      shell: powershell
-      run: |
-        $installer = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vs_installer.exe"
-        $vsPath = "C:\Program Files\Microsoft Visual Studio\2022\Enterprise"
-        # vs_installer.exe is a launcher - use Start-Process -Wait so PowerShell
-        # blocks until the spawned installer process actually finishes.
-        $proc = Start-Process -FilePath $installer `
-          -ArgumentList "modify --installPath `"$vsPath`" --add Microsoft.VisualStudio.Component.VC.140 --quiet --norestart --wait" `
-          -Wait -PassThru
-        Write-Host "vs_installer exit code: $($proc.ExitCode)"
-        if ($proc.ExitCode -ne 0) { exit $proc.ExitCode }
-
     - name: Build wheel
+      shell: cmd
       run: |
+        for /f "usebackq tokens=*" %%i in (`"%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe" -latest -products * -property installationPath`) do set VS_PATH=%%i
+        call "%VS_PATH%\VC\Auxiliary\Build\vcvarsall.bat" ${{ matrix.vcvars-arch }}
+        set DISTUTILS_USE_SDK=1
+        set MSSdk=1
         python setup.py bdist_wheel
     
     - name: List built wheels
