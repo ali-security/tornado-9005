@@ -788,7 +788,7 @@ def set_parse_body_config(config):
     >>> parse_body_arguments(content_type, multipart_body, {}, {})
     Traceback (most recent call last):
         ...
-    tornado.httputil.HTTPInputError: ...: multipart/form-data parsing is disabled
+    ...HTTPInputError: ...: multipart/form-data parsing is disabled
     >>> set_parse_body_config(ParseBodyConfig())  # reset to defaults
     """
     global _DEFAULT_PARSE_BODY_CONFIG
