@@ -555,9 +555,25 @@ class RequestHandler(object):
         # The cookie library only accepts type str, in both python 2 and 3
         name = escape.native_str(name)
         value = escape.native_str(value)
-        if re.search(r"[\x00-\x20]", name + value):
-            # Don't let us accidentally inject bad stuff
+        if re.search(r"[\x00-\x20]", value):
+            # Legacy check for control characters in cookie values. This check is no longer needed
+            # since the cookie library escapes these characters correctly now. It will be removed
+            # in the next feature release.
             raise ValueError("Invalid cookie %r: %r" % (name, value))
+        for attr_name, attr_value in [
+            ("name", name),
+            ("domain", domain),
+            ("path", path),
+            ("samesite", kwargs.get("samesite")),
+        ]:
+            # Cookie attributes may not contain control characters or semicolons (except when
+            # escaped in the value). A check for control characters was added to the http.cookies
+            # library in a Feb 2026 security release; as of March it still does not check for
+            # semicolons.
+            if attr_value is not None and re.search(r"[\x00-\x20\x3b\x7f]", attr_value):
+                raise Cookie.CookieError(
+                    "Invalid cookie attribute %s=%r for cookie %r" % (attr_name, attr_value, name)
+                )
         if not hasattr(self, "_new_cookie"):
             self._new_cookie = Cookie.SimpleCookie()
         if name in self._new_cookie:
@@ -1557,6 +1573,14 @@ class RequestHandler(object):
         try:
             if self.request.method not in self.SUPPORTED_METHODS:
                 raise HTTPError(405)
+
+            # If we're not in stream_request_body mode, this is the place where we parse the body.
+            if not _has_stream_request_body(self.__class__):
+                try:
+                    self.request._parse_body()
+                except httputil.HTTPInputError as e:
+                    raise HTTPError(400, "Invalid body: %s" % e)
+
             self.path_args = [self.decode_argument(arg) for arg in args]
             self.path_kwargs = dict((k, self.decode_argument(v, name=k))
                                     for (k, v) in kwargs.items())
@@ -2190,8 +2214,9 @@ class _HandlerDelegate(httputil.HTTPMessageDelegate):
         if self.stream_request_body:
             future_set_result_unless_cancelled(self.request.body, None)
         else:
+            # Note that the body gets parsed in RequestHandler._execute so it can be in
+            # the right exception handler scope.
             self.request.body = b''.join(self.chunks)
-            self.request._parse_body()
             self.execute()
 
     def on_connection_close(self):
@@ -2650,6 +2675,15 @@ class StaticFileHandler(RequestHandler):
             # but there is some prefix to the path that was already
             # trimmed by the routing
             if not self.request.path.endswith("/"):
+                if self.request.path.startswith("//"):
+                    # A redirect with two initial slashes is a "protocol-relative" URL.
+                    # This means the next path segment is treated as a hostname instead
+                    # of a part of the path, making this effectively an open redirect.
+                    # Reject paths starting with two slashes to prevent this.
+                    # This is only reachable under certain configurations.
+                    raise HTTPError(
+                        403, "cannot redirect path with two initial slashes"
+                    )
                 self.redirect(self.request.path + "/", permanent=True)
                 return
             absolute_path = os.path.join(absolute_path, self.default_filename)
